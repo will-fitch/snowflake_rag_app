@@ -3,6 +3,16 @@ from app_state import AppState
 
 def initialize_session_state():
     """Initialize session state with application state."""
+    # Test Snowflake connection first
+    try:
+        session = st.connection("snowflake").session()
+        # Test a simple query
+        result = session.sql("SELECT 1 as test").collect()
+        st.sidebar.success("✅ Snowflake connection successful")
+    except Exception as e:
+        st.error(f"❌ Snowflake connection failed: {str(e)}")
+        st.stop()
+    
     if 'app_state' not in st.session_state:
         st.session_state.app_state = AppState()
     
@@ -38,6 +48,10 @@ def handle_file_upload():
                 st.sidebar.success(f"✅ Added {num_chunks} chunks from '{file_name}'")
         except Exception as e:
             st.sidebar.error(f"❌ Error processing file: {str(e)}")
+            st.sidebar.error(f"Error type: {type(e).__name__}")
+            # Print full error details for debugging
+            import traceback
+            st.sidebar.error(f"Full error: {traceback.format_exc()}")
 
 def render_file_upload():
     """Render the file upload section in the sidebar."""
@@ -109,6 +123,10 @@ def handle_chat_input():
             }
             st.session_state.messages.append(error_message)
             display_message(error_message)
+            # Print full error details for debugging
+            import traceback
+            st.error(f"Error type: {type(e).__name__}")
+            st.error(f"Full error: {traceback.format_exc()}")
 
 def main():
     """Main application function."""
