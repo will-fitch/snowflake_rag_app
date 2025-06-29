@@ -34,7 +34,6 @@ class AppState:
 
         file_storage.save_uploaded_file(file_name, file_content)
 
-        # file_content is already bytes, decode it to string for text processing
-        file_text = file_content.decode("utf-8")
+        file_bytes = file_content.tobytes()
         
-        return self.rag_model.add_content(file_text, file_name, chunk_size, chunk_overlap)
+        return self.rag_model.add_content(file_bytes.decode("utf-8"), file_name, chunk_size, chunk_overlap)
