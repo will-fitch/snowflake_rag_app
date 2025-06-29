@@ -46,26 +46,22 @@ class SnowflakeVectorStore:
 
             embeddings = self.embeddings.embed_documents(texts)
 
-            # data = []
-            # for i, (doc, metadata, embedding) in enumerate(zip(documents, metadatas, embeddings)):
-            #     doc_id = str(uuid.uuid4())
+            data = []
+            for i, (doc, metadata, embedding) in enumerate(zip(documents, metadatas, embeddings)):
+                doc_id = str(uuid.uuid4())
 
-            #     metadata_json = str(metadata) if metadata else "{}"
+                data.append((
+                        doc_id,
+                        metadata.get('filename', 'unknown'),
+                        doc.page_content,
+                        metadata.get('chunk_index', i),
+                        embedding
+                    ))
 
-            #     data.append((
-            #         doc_id,
-            #         metadata.get('filename', 'unknown'),
-            #         doc.page_content,
-            #         metadata.get('chunk_index', i),
-            #         embedding,
-            #         # metadata_json
-            #     ))
+            df = session.create_dataframe(data, schema=self.schema)
+            df.write.insert_into(self.table_name)
 
-            # df.session.create_dataframe(data, schema=self.schema)
-            # df.write.insert_into(self.table_name)
-
-            # return len(documents)
-            return 0
+            return len(documents)
 
         except Exception as e:
             raise e
@@ -86,7 +82,6 @@ class SnowflakeVectorStore:
                 CHUNK_TEXT,
                 FILENAME,
                 CHUNK_INDEX,
-                METADATA,
                 VECTOR_COSINE_SIMILARITY(EMBEDDING, TO_VECTOR('[{embedding_str}]')) as similarity_score
             FROM {self.table_name}
             ORDER BY similarity_score DESC
@@ -102,8 +97,7 @@ class SnowflakeVectorStore:
                     "content": row["CHUNK_TEXT"],
                     "metadata": {
                         "filename": row["FILENAME"],
-                        "chunk_index": row["CHUNK_INDEX"],
-                        "raw_metadata": row["METADATA"]
+                        "chunk_index": row["CHUNK_INDEX"]
                     },
                     "score": row["SIMILARITY_SCORE"]
                 })
@@ -116,7 +110,7 @@ class SnowflakeVectorStore:
 
     def delete_by_filename(self, filename: str):
         try:
-            session = self.get_session()
+            session = self._get_session()
             
             # Get count before deletion
             count_sql = f"SELECT COUNT(*) as count FROM {self.table_name} WHERE FILENAME = '{filename}'"
@@ -136,7 +130,7 @@ class SnowflakeVectorStore:
 
     def reset_collection(self):
         try:
-            session = self.get_session()
+            session = self._get_session()
             
             # Get count before deletion
             count_result = session.sql(f"SELECT COUNT(*) as count FROM {self.table_name}").collect()

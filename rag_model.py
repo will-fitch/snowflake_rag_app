@@ -3,11 +3,18 @@ import streamlit as st
 import os
 # import getpass
 
-os.environ["OPENAI_API_KEY"] = "temp"
+# Get OpenAI API key from Snowflake secrets
+session = st.connection("snowflake").session()
+api_key_result = session.sql("SHOW SECRETS").collect()
+for row in api_key_result:
+    if "OPENAI_API_KEY" in row["name"]:
+        os.environ["OPENAI_API_KEY"] = row["value"]
+        break
 
-# session = st.connection("snowflake").session()
-# api_key = session.sql("SHOW SECRETS IN ").collect()
-# os.environ["OPENAI_API_KEY"] = api_key
+# Fallback if no secret found
+if not os.environ.get("OPENAI_API_KEY"):
+    st.error("OpenAI API key not found in Snowflake secrets. Please add it as a secret named 'OPENAI_API_KEY'.")
+    st.stop()
 
 # load_dotenv()
 # if not os.environ.get("OPENAI_API_KEY"):
@@ -65,9 +72,22 @@ class RAGModel:
                 query=query
             )
         
+        # Extract content and sources from the vector store response
+        content_parts = []
+        sources = []
+        
+        for doc in relevant_documents:
+            content_parts.append(doc["content"])
+            sources.append({
+                "filename": doc["metadata"]["filename"],
+                "content": doc["content"],
+                "chunk_index": doc["metadata"]["chunk_index"],
+                "score": doc["score"]
+            })
+        
         return RAGResponse(
-            content="\n".join([document.page_content for document in relevant_documents]),
-            sources=[],
+            content="\n\n".join(content_parts),
+            sources=sources,
             query=query
         )
 
